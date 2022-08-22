@@ -1,0 +1,778 @@
+<html>
+<head>
+<title>[Chat] Tomatito :: Chirto</title>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+<script type="text/javascript" src="mediaplayer/swfobject.js"></script>
+<script type="text/javascript" src="../jquery.js"></script>
+<script type="text/javascript" src="sources.js?r=1"></script>
+<link rel="shortcut icon" href="../favicon.png">
+<link rel="icon" href="../favicon.png">
+<link rel="favicon" href="../favicon.png">
+<LINK rel="StyleSheet" href="style.css" type="text/css">
+<script>
+/****************Sigue la pag******************/
+var step=0;
+var ultevent=-1;
+var primeracarga=true;
+var ultimopv='';
+var user="42874";
+var canal="0";
+var runeonce="9522155";
+var run="23742";
+var hor=18;
+var min=12;
+var seg=42;
+var cuenta="Tomatito";
+var color="eeeedd";
+var clan="";
+var clancolor="000000";
+var imagen="Tomatito.jpg";
+var play_sound;
+var contenedor;
+var autoscroll=true;
+var defaultHost="localchirto";
+var status=0;
+var todiv;
+var connection;
+
+	if (localStorage.getItem('chat_play_sound')!=undefined)
+	{
+		play_sound=Math.floor(localStorage.getItem('chat_play_sound'));
+	}
+var play_radio=1;
+	if (localStorage.getItem('chat_play_radio')!=undefined)
+	{
+		play_radio=Math.floor(localStorage.getItem('chat_play_radio'));
+	}
+var mute_main=0;
+	if (localStorage.getItem('chat_mute_main')!=undefined)
+	{
+		mute_main=Math.floor(localStorage.getItem('chat_mute_main'));
+	}
+var show_users=0;
+var last_users="";
+var maxChatLength=200;
+var onWindow=true;
+window.onblur = function() { onWindow = false; }
+window.onfocus = function() { onWindow = true; }
+document.onblur = window.onblur;
+document.focus = window.focus;
+if (canal.search("mesa_")!=-1)
+{
+  maxChatLength=100;
+  play_radio=0;
+}
+var pestanas=new Array();
+pestanas[pestanas.length]="0";
+pestanaActiva="0";
+/****/
+//var arr_colores=new Array();
+//	arr_colores[0]="";
+/****/
+function agregarPestana(nombre)
+{
+  enc=false;
+  for (var i=0;i<pestanas.length;i++) { if (pestanas[i].toLowerCase()==nombre.toLowerCase()) { enc=true; } }
+  if (enc==false)
+  {
+    pestanas[pestanas.length]=nombre;
+    dibujarPestanas();
+    return true;
+  }
+  return false;
+}
+
+function quitarPestana(nombre)
+{
+  var npestas=new Array();
+  enc=false;
+  for (var i=0;i<pestanas.length;i++) { if (pestanas[i].toLowerCase()==nombre.toLowerCase()) { enc=true; } }
+  if (enc==true)
+  {
+    for (var i=0;i<pestanas.length;i++)
+    {
+      if (pestanas[i].toLowerCase()!=nombre.toLowerCase())
+      {
+        npestas[npestas.length]=pestanas[i];
+      }
+    }
+    pestanas=npestas;
+    if (nombre==pestanaActiva) { cambiarPestana('0'); }
+    dibujarPestanas();
+    return true;
+  }
+  return false;
+}
+
+function cambiarPestana(topest)
+{
+  if (pestanaActiva!=topest)
+  {
+    enc=false;
+    for (var i=0;i<pestanas.length;i++) { if (pestanas[i].toLowerCase()==topest.toLowerCase()) { enc=true; } }
+    if (enc==true)
+    {
+      $("#divlistapestas span").attr("class",'pestaDes');
+      var yi=$("#divlistapestas #pestana_"+topest);
+      yi.attr("class",'pestaAct');
+      yi.css("font-weight",'');
+      yi.css("color",'');
+      $("#contenedor p").css("display",'none');
+      $("#contenedor #com_"+topest).css("display",'');
+      scrollear();
+      pestanaActiva=topest;
+      privateTo(topest);
+      return true;
+    }
+    return false;
+  }
+  return false;
+}
+
+function dibujarPestanas()
+{
+  var cum="";
+  for (var i=0;i<pestanas.length;i++)
+  {
+    var clase=(pestanaActiva==pestanas[i])?"pestaAct":"pestaDes";
+    var totexto=(pestanas[i]=='0')?"Main":pestanas[i];
+    var cerrable=(pestanas[i]=='0')?"":" <img src='../img/no.gif' height='10' onClick=\"quitarPestana('"+pestanas[i]+"');\">";
+    cum+="<span onClick=\"cambiarPestana('"+pestanas[i]+"');\" class='"+clase+"' id='pestana_"+pestanas[i]+"'>"+totexto+cerrable+"</span> ";
+  }
+  cum+=" <span onClick=\"verSmileys();\" class='pestaDes' id='pestana__smileys' title='Ver lista de Smileys'><img src='smileys/slowpoke.gif' height='10'></span>";
+  $("#divlistapestas").html(cum);
+}
+
+function verSmileys()
+{
+	var cum="";
+	var ultimo='';
+	for (var c=0;c<arr_smileys.length;c++)
+	{
+		if ((arr_smileys[c][1]!="'")&&(arr_smileys[c][1]!="\""))
+		{
+			if (ultimo!=arr_smileys[c][1].split('title=')[0])
+			cum+=" <a href='#' onClick=\"document.getElementById('texto').value+=' "+arr_smileys[c][0]+"';\">"+arr_smileys[c][1]+"</a>";
+			ultimo=arr_smileys[c][1].split('title=')[0];
+		}
+	}
+	var elem=$("#listaSmileys");
+	var elemc=$("#listaSmileysContainer");
+	elem.css("top",5);
+	elem.css("left",5);
+	elem.css("width",window.innerWidth-20);
+	elem.css("height",window.innerHeight-60);
+	elemc.html(cum);
+	elemc.css("width",window.innerWidth-32);
+	elemc.css("height",window.innerHeight-83);
+	elem.show();
+}
+
+function newConn(h,p)
+{
+	if (status!=0) return;
+	status=1;
+	if (!h) h=location.href.substr(0,4)=='file'?defaultHost:"chirto.com.ar";
+	if (!p) p=8001;
+
+	connection = new WebSocket("wss://"+h+":"+p);
+	connection.onopen = function () {
+		console.log("Connection opened");
+		document.body.bgColor='#8a8';
+		status=2;
+	}
+	connection.onclose = function () {
+		console.log("Connection closed");
+		document.body.bgColor='#888';
+		status=0;
+	}
+	connection.onerror = function (e) {
+		console.error("Connection error",e)
+		document.body.bgColor='#a88';
+		status=0;
+	}
+	connection.onmessage = interpretarDatos;
+}
+
+function dopresend(etapa) {
+	var tps=["login "+user+" "+runeonce,"chat join "+canal];
+	//tps.forEach(function (v,i){setTimeout(function () {connection.send(v);console.log(v)},1000*i);});
+	connection.send(tps[etapa]);
+}
+
+function interpretarDatos(e) {
+	//console.log(e.data);
+	var inner=JSON.parse(e.data);
+	
+	if (inner) {
+		//console.log(inner);
+		if (inner.show=='login') {
+			dopresend(0);
+		} else if (inner.show=='juego') {
+			dopresend(1);
+		} else if (inner.show=='chat') {
+			var variosChats=inner.variosChats||[inner];
+			for (var c=0;c<variosChats.length;c++) {
+				var chat=variosChats[c];
+				var nhora=new Date(chat.hora);
+				var fila=new Array('p'+gDoble(hor)+gDoble(min)+gDoble(seg),gDoble(nhora.getHours())+':'+gDoble(nhora.getMinutes()),chat.sender,chat.color,chat.message,chat.tag,chat.tagcolor,chat.lado,chat.priv,chat.poke);
+				var tarro=new Array();
+				tarro[tarro.length]=fila;
+				agregar(tarro);
+			}
+		}
+	}
+}
+
+$(document).ready(function ()
+{
+	gid('texto').onkeydown = function (o) { k=o.keyCode; if (k==13) /*Enter*/ { enviarChat(); } }
+	var heradio=6;
+	if (play_radio==1)
+	{
+		var so = new SWFObject('mediaplayer/mediaplayer.swf', 'streambaby', ""+(window.innerWidth-6), '20', '7');
+		so.addVariable('file', 'http://pub7.sky.fm:80/sky_the80s_aacplus?2c034da02012afcc236ac1a2');
+		so.addVariable('type', 'mp3');
+		if (play_sound) { so.addVariable('autostart','true'); }
+		so.addVariable('backcolor','0x999999');
+		so.addVariable('frontcolor','0xFFFFFF');
+		so.addVariable('lightcolor','0xFF8800');
+		so.addVariable('screencolor','0xFF8800');
+		so.write('toplayradio');
+		heradio=28;
+	}
+	contenedor=gid('contenedor');
+	contenedor.style.width=((window.innerWidth-16)+'px');
+	contenedor.style.height=((window.innerHeight-42-14-heradio)+'px');
+	var ancho=parseInt($("#contenedor").css("width").split('px')[0]);
+	$("#texto").css("width",(ancho-96)+'px');
+	toogleSound(0);
+	toogleScroll(0);
+	toogleUsuarios(-1);
+	dibujarPestanas();
+	loop();
+	setInterval("loop();",1000);
+});
+
+function agregar(arrays)
+{
+  /*
+  0=id
+  1=hora
+  2=cuenta
+  3=color
+  4=mensaje
+  5=clan
+  6=clancolor
+  7=lado
+  8=priv
+  */
+  for (var a=0;a<arrays.length;a++)
+  {
+    var fila=arrays[a];
+    var dueno=fila[2];
+    var pvt=fila[2];
+    var topest='0';
+	var tosound='';
+	//fix de algunas cuentas
+	dueno=dueno.replace(/mco trainer/ig,"McO_Trainer");
+	dueno=dueno.replace(/lt surge/ig,"Lt_Surge");
+	//fin de fixes
+    if (fila[2]!='')
+    {
+		var pokedib="";
+		var msm=fila[4];
+		fila[4]=ppCode(fila[4]);
+		var tmpsound=soundCode(fila[4]);
+		fila[4]=tmpsound[0];
+		if (tmpsound[1]!='') { tosound=tmpsound[1]; }
+		if (fila[7]==cuenta&&fila[2]!=cuenta) { agregarPestana(dueno); ultimopv=dueno; topest=dueno; fila[4]="<font style='color:#fff;'>"+fila[4]+"</font>"; }
+		else if (fila[7]!='0'&&(fila[2]==cuenta||fila[7]==clan)) { topest=fila[7]; agregarPestana(topest); if(fila[2]==cuenta)cambiarPestana(topest); fila[4]="<font style='color:#fff;'>"+fila[4]+"</font>"; }
+		//if (fila[7]==cuenta) { if (msm.indexOf('->')!=-1) { topest=msm.split('->')[0]; agregarPestana(topest); cambiarPestana(topest); fila[4]=fila[4].split(topest+'->').join(''); }
+		else if (fila[7]!='0') { fila[4]="<font style='color:#afa;'><i>"+fila[4]+" ("+(canal=='0'?"Clan":"Equipo")+")</i></font>"; pvt='!'; dueno="!"; topest="0"; }
+		else { fila[4]="<font style='color:#fff;'>"+fila[4]+"</font>"; topest='0'; }
+		if (fila[3]=='rainbw')
+		{
+			var tmp=fila[2]+":"; fila[2]="";
+			for (var i=0;i<tmp.length;i++)
+			{
+				fila[2]+="<b style='color:hsl("+((i%7)*(360/7))+",100%,50%);'>"+tmp[i]+"</b>";
+			}
+		} else if (fila[3]=='dorado') {
+			var tmp=fila[2]+":"; fila[2]="";
+			var r=-Math.random();
+			for (var i=0;i<tmp.length;i++)
+			{
+				r+=1/tmp.length;
+				fila[2]+="<b style='color:hsl(55,90%,"+(Math.round(60-Math.abs(Math.sin(r))*50))+"%);'>"+tmp[i]+"</b>";
+			}
+		} else if (fila[3]=='argado') {
+			var tmp=fila[2]+":"; fila[2]="";
+			var r=-Math.random();
+			for (var i=0;i<tmp.length;i++)
+			{
+				r+=1.5/tmp.length;
+				fila[2]+="<b style='color:hsl(200,20%,"+(100-Math.round(Math.abs(Math.sin(r))*65))+"%);'>"+tmp[i]+"</b>";
+			}
+		} else if (fila[3]=='brcado') {
+			var tmp=fila[2]+":"; fila[2]="";
+			var r=-Math.random();
+			for (var i=0;i<tmp.length;i++)
+			{
+				r+=2/tmp.length;
+				fila[2]+="<b style='color:hsl(40,20%,"+(100-Math.round(Math.abs(Math.sin(r))*65))+"%);'>"+tmp[i]+"</b>";
+			}
+		}
+		else
+			fila[2]=fila[2]+":";
+		//pokedib
+		if (fila[9]&&fila[9]!='0'&&fila[9]!=0) {
+			pokedib="<font class='label'><img class='label' src='smileys/pokes_ico/"+fila[9]+".gif'/>&nbsp;&nbsp;</font>";
+		}
+		//fin pokedib
+		fila[2]=(fila[5]!=''?'':pokedib)+"<a href='#' class='perfil' onClick=\"privateTo('"+dueno+"');\" onContextMenu=\"event.preventDefault();replyTo('"+dueno+"',this);\"><b style='color:#"+fila[3]+";'>"+fila[2]+"</b></a>";
+		if (fila[5]!='') { fila[2]=pokedib+"<a href='#' class='perfil' onClick=\"privateTo('"+fila[5]+"');\" onContextMenu=\"event.preventDefault();replyTo('"+fila[5]+"',this);\"><font style='color:#"+fila[6]+";'>"+fila[5]+"</font><font style='color:#fff;'>]</font></a>"+fila[2]; }
+			//fila[2]=""+fila[2]+"";
+    }
+    else
+    {
+		//console.log(fila);
+      topest='0';
+      if (fila[4]=='baned')
+      {
+        if (fila[5]==cuenta) { fila[4]="Has sido Baneado por "+fila[6]+" hs."; salir(); }
+        else { fila[4]="<a href='#' class='perfil' onClick=\"perfil('"+fila[5]+"');\"><b>"+fila[5]+"</b></a> ha sido Baneado por "+fila[6]+" hs."; }
+        //$("#contenedor #"+fila[5]).remove();
+      }
+      else if (fila[4]=='kicked')
+      {
+        if (fila[5]==cuenta) { fila[4]="Has sido Kickeado."; salir(); }
+        else { fila[4]="<a href='#' class='perfil' onClick=\"perfil('"+fila[5]+"');\"><b>"+fila[5]+"</b></a> ha sido Kickeado."; }
+        //$("#contenedor #com_"+fila[5]).remove();
+      }
+	  else if (fila[4]=='muted')
+      {
+        if (fila[5]==cuenta) { fila[4]="Has sido Silenciado."; }
+		else if ((fila[5]==='[todos]')||(fila[5]==='[users]')) { fila[4]="La sala de chat ha sido Silenciada."; }
+        else { fila[4]="<a href='#' class='perfil' onClick=\"perfil('"+fila[5]+"');\"><b>"+fila[5]+"</b></a> ha sido Silenciado."; }
+        //$("#contenedor #com_"+fila[5]).remove();
+      }
+	  else if (fila[4]=='pregask')
+      {
+        fila[4]="</i><img src='../img/miniball.png' height='8'> <font style='color:#dfd;'><u>Responder</u>: <b>"+fila[5]+"</b></font><i>";
+      }
+	  else if (fila[4]=='pregwin')
+      {
+		var twin=fila[5].split('==');
+		if (twin[0]==cuenta) { fila[4]="<font style='color:#dfd;'>¡Felicidades! Has sido el primero en responder correctamente.</font>"; }
+		else  { fila[4]="<font style='color:#dfd;'>La primer respuesta correcta fue de <a href='#' class='perfil' onClick=\"perfil('"+twin[0]+"');\"><b>"+twin[0]+"</b></a>. Su respuesta fue \"<font style='color:#fdd'>"+twin[1]+"</font>\".</font>"; }
+      }
+      else if (fila[4]=='quit')
+      {
+        fila[4]="<a href='#' class='perfil' onClick=\"perfil('"+fila[5]+"');\"><b>"+fila[5]+"</b></a> ha desactivado el Chat.";
+      }
+      fila[4]="<i style='color:#"+fila[3]+";'>"+fila[4]+"</i>";
+    }
+	
+	
+    var toshow=(pestanaActiva==topest)?"":"display:none;";
+    $("#contenedor").append("<p id='com_"+topest+"' style='"+toshow+"'>["+fila[1]+"] "+fila[2]+" "+fila[4]+"</p>");
+    if (pestanaActiva!=topest) { var yi=$("#divlistapestas #pestana_"+topest); yi.css("font-weight",'bold'); yi.css("color",'#fff'); }
+    if ((topest!='0')||(mute_main==0))
+	{
+		if (tosound!='') { doSound(tosound); } else { doSound("chat.wav"); }
+	}
+  }
+  scrollear();
+  if ($("#contenedor p").length>maxChatLength)
+  {
+    for (var r=$("#contenedor p").length;r>maxChatLength;r--)
+    $("#contenedor p").first().remove();
+  }
+}
+
+function replyTo(us,elem) {
+	$("#texto").attr('value','[r]'+us+'[/r] ');
+	$("#texto").focus();
+}
+
+function scrollear(force)
+{
+	var a=contenedor.scrollTop;
+	var m=contenedor.scrollTopMax;
+	//if ((force)||(a>=m)||(a/m>0.75))
+	if ((force)||(autoscroll))
+	{
+		/*if (!onWindow) { if (parent) { var fantes=parent.document.activeElement; } }
+		else { var fantes=document.activeElement; }
+		$("#contenedor").append("<input name='tofocus' id='tofocus' tyle='visibility:hidden;'>");
+		$("#contenedor #tofocus").focus();
+		$("#contenedor #tofocus").remove();
+		if (fantes) { fantes.focus(); }*/
+		contenedor.scrollTop=contenedor.scrollHeight;
+		return true;
+	}
+}
+
+function limpiar()
+{
+  $("#contenedor p").remove();
+}
+
+function salir(rutaext)
+{
+  if (rutaext==null) { rutaext=''; }
+  location=rutaext+"dc.php?c=0&user=42874";
+}
+
+function enviarChat()
+{
+	primeracarga=false;
+	var toenviar=$("#texto").attr('value');
+	//fix de algunas cuentas
+	toenviar=toenviar.replace(/mco trainer/ig,"McO_Trainer");
+	toenviar=toenviar.replace(/lt surge/ig,"Lt_Surge");
+	//fin de fixes
+	if (toenviar!='')
+	{
+		var lado='0';
+		if (toenviar.substr(0,3)=='/r ') { toenviar="/p "+ultimopv+" "+toenviar.substr(3); }
+		if (toenviar.substr(0,6)=='/clan ') { toenviar="!"+toenviar.substr(6); }
+		else if (toenviar.substr(0,8)=='/equipo ') { toenviar="!"+toenviar.substr(8); }
+		if ((pestanaActiva!='0')&&(toenviar.substr(0,3)!="/p ")) { toenviar="/p "+pestanaActiva+" "+toenviar; }
+
+		//$.post("chat.php",{chat:toenviar,ultevent:ultevent,canal:canal,run:run},leerChat);
+		/*$.ajax({
+			type: "POST",
+			url: "chat.php",
+			data: {chat:toenviar,ultevent:ultevent,canal:canal,run:run},
+			success: leerChat,
+			timeout: 5000
+		});*/
+		connection.send("chat say "+canal+" "+toenviar);
+		$("#texto").attr('value','');
+		if ((toenviar.substr(0,3)=='/p ')||(toenviar.substr(0,3)=='/w ')) { lado=cuenta; var tmp=(toenviar+" ").split(" "); toenviar=tmp[1]+"->"+toenviar.substr(3+tmp[1].length); privateTo(tmp[1]); }
+		else if (toenviar.substr(0,1)=='!') { lado='a'; toenviar=toenviar.substr(1); privateTo('!'); }
+		else if (toenviar=='/clear') { limpiar(); toenviar="<i style='color:#fed'>Chat limpio</i>"; }
+		else if (toenviar=='/dc') { limpiar(); toenviar="<i style='color:#fed'>Cerrando conexiones...</i>"; setTimeout("salir();",1500); }
+		else if (toenviar=='/mute_main') { if (mute_main==1) { toenviar="<i style='color:#fed'>Desmuteando el Main...</i>"; mute_main=0; } else { toenviar="<i style='color:#fed'>Muteando el Main...</i>"; mute_main=1; } localStorage.setItem('chat_mute_main',mute_main); }
+		else if (toenviar=='/radioalwaysoff') { if (play_radio==1) { toenviar="<i style='color:#fed'>Muteando Radio... (necesitarás recargar el chat)</i>"; play_radio=0; } else { toenviar="<i style='color:#fed'>Desmuteando Radio... (necesitarás recargar el chat)</i>"; play_radio=1; } localStorage.setItem('chat_play_radio',play_radio); }
+		else { lado='0'; }
+		/*var fila=new Array('p'+gDoble(hor)+gDoble(min)+gDoble(seg),gDoble(hor)+':'+gDoble(min),cuenta,color,toenviar,clan,clancolor,lado);
+		var tarro=new Array();
+		tarro[tarro.length]=fila;
+		agregar(tarro);//*/
+	}
+}
+
+function loop()
+{
+	if (step%5==0)
+	{
+		newConn();
+		//$.post("chat.php",{refresh:1,ultevent:ultevent,canal:canal,run:run},leerChat);
+		/*$.ajax({
+		type: "POST",
+		url: "chat.php",
+		data: {refresh:1,ultevent:ultevent,canal:canal,run:run},
+		success: leerChat,
+		timeout: 2000
+		});*/
+	}
+	if (step%15==0)
+	{
+		//$.post("users.php",{refresh:1,ultevent:ultevent,canal:canal,run:run},leerUsers);
+		$.ajax({
+			type: "POST",
+			url: "users.php",
+			data: {refresh:1,ultevent:ultevent,canal:canal,run:run},
+			success: leerUsers,
+			timeout: 10000
+		});
+	}
+	step++;
+	seg++;
+	if (seg>=60) { seg=0; min++; }
+	if (min>=60) { min=0; hor++; }
+	if (hor>=24) { hor=0; }
+}
+
+function leerChat(datos)
+{
+  if (datos.search("&alertar&")!=-1)
+  {
+    alert(datos);
+  }
+  var lista=datos.split(';|;');
+  var tarro=new Array();
+  for (var i=0;i<lista.length;i++)
+  {
+    if ((lista[i]!=undefined)&&(lista[i]!=''))
+    {
+      var fila=lista[i].split(';;;');
+      if (((fila[2]!=cuenta)||(primeracarga==true))&&((ultevent<Math.floor(fila[0]))||(fila[2]=='')))
+      {
+        if (ultevent<Math.floor(fila[0])) { ultevent=Math.floor(fila[0]); }
+        tarro[tarro.length]=fila;
+      }
+    }
+  }
+  if (tarro.length>0)
+  {
+    agregar(tarro);
+  }
+}
+
+function leerUsers(datos)
+{
+  last_users=datos;
+  toogleUsuarios(0);
+}
+
+function toogleUsuarios(toogle)
+{
+  if ((toogle==1)||((show_users==1)&&(toogle!=-1)))
+  {
+    var lista=last_users.split("|");
+    var cumulo="<div align='right' style='margin-bottom:3px;'><b>Conectados</b> ("+(lista.length-1)+") &nbsp; &nbsp; <b class='boton' onClick='toogleUsuarios(-1);'>(-)</b></div><table class='usuarios' cellspacing='0' width='150'>";
+    for (var a=0;a<lista.length;a++)
+    {
+      if (lista[a]!='')
+      {
+        var fila=lista[a].split(';');
+		var privateTo=fila[1];
+        if (fila[3]!='') { fila[3]="<font style='color:#"+fila[4]+";'>"+fila[3]+"</font>]"; }
+		if (fila[2]=='rainbw')
+		{
+			var tmp=fila[1]; fila[1]="";
+			for (var i=0;i<tmp.length;i++)
+			{
+				fila[1]+="<b style='color:hsl("+((i%7)*(360/7))+",100%,50%);'>"+tmp[i]+"</b>";
+			}
+		} else if (fila[2]=='dorado') {
+			var tmp=fila[1]+":"; fila[1]="";
+			var r=-Math.random();
+			for (var i=0;i<tmp.length;i++)
+			{
+				r+=1/tmp.length;
+				fila[1]+="<b style='color:hsl(55,90%,"+(Math.round(60-Math.abs(Math.sin(r))*50))+"%);'>"+tmp[i]+"</b>";
+			}
+		} else if (fila[2]=='argado') {
+			var tmp=fila[1]+":"; fila[1]="";
+			var r=-Math.random();
+			for (var i=0;i<tmp.length;i++)
+			{
+				r+=1.5/tmp.length;
+				fila[1]+="<b style='color:hsl(200,20%,"+(100-Math.round(Math.abs(Math.sin(r))*65))+"%);'>"+tmp[i]+"</b>";
+			}
+		} else if (fila[2]=='brcado') {
+			var tmp=fila[1]+":"; fila[1]="";
+			var r=-Math.random();
+			for (var i=0;i<tmp.length;i++)
+			{
+				r+=2/tmp.length;
+				fila[1]+="<b style='color:hsl(40,20%,"+(100-Math.round(Math.abs(Math.sin(r))*65))+"%);'>"+tmp[i]+"</b>";
+			}
+		}
+		
+		fila[3]+="<b style='color:#"+fila[2]+";'>"+fila[1]+"</b>";
+        fila[3]="<a href='#' class='perfil' onClick=\"perfil('"+privateTo+"');\">"+fila[3]+"</a>";
+        cumulo+="<tr><td>"+fila[3]+"<td><td align='right' style='cursor:pointer;' onClick=\"privateTo('"+privateTo+"');\"><img src='../img/izquierda.png' height='12' title='Privado'></td></tr>";
+      }
+    }
+    cumulo+="</table>";
+    $("#usuarios").html(cumulo);
+    $("#usuarios").attr("class","usshow");
+    $("#usuarios").css("top","3px");
+    var tox=$("#contenedor").css("width").split('px')[0]-1+4;
+    var box=$("#usuarios").css("width").split('px')[0];
+    $("#usuarios").css("left",tox-box+"px");
+    show_users=1;
+  }
+  else if (toogle==-1)
+  {
+    $("#usuarios").html("<b class='boton' onClick='toogleUsuarios(1);'>&nbsp;+&nbsp;</b>");
+    $("#usuarios").attr("class","ushide");
+    $("#usuarios").css("top","3px");
+    var tox=$("#contenedor").css("width").split('px')[0]-1+4;
+    var box=$("#usuarios").css("width").split('px')[0];
+    $("#usuarios").css("left",tox-box+"px");
+    show_users=-1;
+  }
+}
+
+function toogleSound(chg)
+{
+  if (chg==1)
+  {
+    if (play_sound==0)
+    {
+      play_sound=1;
+    }
+    else
+    {
+      play_sound=0;
+    }
+    localStorage.setItem('chat_play_sound',play_sound);
+  }
+  gid('toogSon').src=play_sound?'../img/audio_1.gif':'../img/audio_0.gif';
+  $("#texto").focus();
+}
+
+function toogleScroll(chg)
+{
+	if (chg==1)
+	{
+		autoscroll=!autoscroll;
+		//localStorage.setItem('chat_play_sound',play_sound);
+	}
+	gid('toogScr').src=autoscroll?'../img/abajo_r.png':'../img/arriba_r.png';
+	$("#texto").focus();
+}
+
+function privateTo(user)
+{
+  var antes=$("#texto").attr('value');
+  var tmpa=antes.split(' ');
+  var para;
+  user = user.split(' ').join('_');
+  if (user=='!') { para='!'; }
+  else if ((user!='')&&(user!='0')) { if (user.toLowerCase()==pestanaActiva.toLowerCase()) { para=''; } else { para='/p '+user+' '; } }
+  else { para=''; }
+  if ((tmpa[0]=='/w')||(tmpa[0]=='/p'))
+  {
+    antes=antes.substr(4+tmpa[1].length);
+  }
+  else if (antes.substr(0,1)=='!')
+  {
+    antes=antes.substr(1);
+  }
+  $("#texto").attr('value',para+antes);
+  $("#texto").focus();
+}
+
+function gDoble(num)
+{
+  if (num<10) { return '0'+num; }
+  else { return num; }
+}
+
+function gid(ref)
+{
+  return document.getElementById(ref);
+}
+
+function perfil(idus) 
+{
+  if ((idus!='<i>Esperando</i>')&&(idus!=''))
+  {
+    duplo=idus.split("]");
+    if (duplo.length>1) { idus=duplo[1]; }
+    idus=idus.replace(/<b>/g,"");
+    idus=idus.replace(/<\/b>/g,"");
+    var tamano_x=600;
+    var tamano_y=300;
+    var pos_x=(window.screen.width/2)-(tamano_x/2);
+    var pos_y=(window.screen.height/2)-(tamano_y/2);
+    perfi=window.open('../verperfil.php?t=m&u='+idus,'perfiles','titlebar=yes,toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=no,resizable=yes,copyhistory=no,width='+tamano_x+',height='+tamano_y+',screenX=0,screenY=0,left='+pos_x+',top='+pos_y);
+    perfi.focus();
+  }
+}
+
+function ppCode(txt)
+{
+  txt=" "+txt+" ";
+  var contitle;
+  for (a=0;a<arr_smileys.length;a++)
+  {
+    txt=txt.split(" "+arr_smileys[a][0]+" ").join(" "+arr_smileys[a][1]+" ");
+  }
+  txt=txt.replace(/#(.*?)#/g,"<img src='http://chirto.com.ar/img/cards2/$1.jpg' title='#$1#' alt='#$1#' style='cursor:pointer;' onClick='original($1);' width='24' height='32'>");
+  txt=txt.replace(/\[b\](.*?)\[\/b\]/g,"<b title='[b][/b]'>$1</b>");
+  txt=txt.replace(/\[u\](.*?)\[\/u\]/g,"<u title='[u][/u]'>$1</u>");
+  txt=txt.replace(/\[i\](.*?)\[\/i\]/g,"<i title='[i][/i]'>$1</i>");
+  txt=txt.replace(/\[s\](.*?)\[\/s\]/g,"<s title='[s][/s]'>$1</s>");
+  txt=txt.replace(/\[k\](.*?)\[\/k\]/g,"<blink title='[k][/k]'>$1</blink>");
+  txt=txt.replace(/\[g\](.*?)\[\/g\]/g,"<font style='font-size:32px;' title='[g][/g]'>$1</font>");
+  txt=txt.replace(/\[p\](.*?)\[\/p\]/g,"<img src='$1' title='[p][/p]'>");
+  txt=txt.replace(/\[r\](.*?)\[\/r\]/g,"<i title='[r][/r]' style='color:#fed;'><u>Respondiendo a <a href='#' class='perfil' onClick=\"perfil('$1');\"><b>$1</b></a>:</u></i>");
+  txt=txt.replace(/\[c=(.*?)\](.*?)\[\/c\]/g,"<span style='color:$1' title='[c=$1][/c]'>$2</span>");
+  txt=txt.replace(/\[w\](.*?)\[\/w\]/g,"<a href='$1' target=_blank title='[w][/w]'>$1</a>");
+  txt=txt.replace(/\[w=(.*?)\](.*?)\[\/w\]/g,"<a href='$1' target=_blank title='[w=][/w]'>$2</a>");
+  return (txt.substr(1,txt.length-2));
+}
+
+function soundCode(txt)
+{
+	txt=" "+txt+" ";
+	var sonido='';
+	for (a=0;a<arr_sounds.length;a++)
+	{
+		if (txt.indexOf(" "+arr_sounds[a][0]+" ")!=-1) { sonido=arr_sounds[a][1]; txt=txt.split(' '+arr_sounds[a][0]+' ').join(" <img src='../img/audio_1.gif' title='"+arr_sounds[a][0]+"' alt='"+arr_sounds[a][0]+"' style='cursor:pointer;' onClick=\"doSound('"+arr_sounds[a][1]+"');\" width='18' height='18'> "); }
+	}
+	return Array(txt.substr(1,txt.length-2),sonido);
+}
+
+function doSound(sonido)
+{
+  if (play_sound==1)
+  {
+	var elem=gid('audio');
+    if ((sonido)&&(elem.src.split('/')[elem.src.split('/').length-1]!=sonido))
+    {
+		elem.src="../sonidos/"+sonido;
+		elem.onloadeddata=function () {
+			this.currentTime=0;
+			this.play();
+		}
+    }
+	else
+	{
+		if ((elem.readyState==4)||(elem.readyState==2))
+		{
+			elem.currentTime=0;
+			elem.play();
+		}
+	}
+  }
+}
+
+function original(img) 
+{
+	var tamano_x=430;
+	var tamano_y=610;
+	var pos_x=(window.screen.width/2)-(tamano_x/2);
+	var pos_y=(window.screen.height/2)-(tamano_y/2);
+	ori=window.open('../original.php?img=img/cards/'+img+'.jpg','originales','titlebar=yes,toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=no,resizable=yes,copyhistory=no,width='+tamano_x+',height='+tamano_y+',screenX=0,screenY=0,left='+pos_x+',top='+pos_y);
+	ori.focus();
+}
+
+
+</script>
+</head>
+<body>
+<table width='100%' height='100%' class='marco'>
+<tr><td colspan='2' valign='top'>
+  <div class='contenedor' id='contenedor'></div>
+  <div id='divlistapestas' style='font-size:1px;'></div>
+</td></tr>
+<tr><td height='24' valign='bottom'>
+		<input type='text' id='texto' class='texto'>
+		<button onClick="enviarChat();" class='boton' id='boton'>Enviar</button>
+	</td>
+	<td>
+		<img src='../img/audio_1.gif' id='toogSon' height='16' style='cursor:pointer;' onClick="window.toogleSound(1);" title='Sonido On/Off'>
+		<img src='../img/scroll_1.gif' id='toogScr' height='16' style='cursor:pointer;' onClick="window.toogleScroll(1);" title='Scroll On/Off'>
+	</td></tr>
+<tr><td colspan='2' id='toplayradio'></td></tr>
+</table>
+<div class='usshow' id='usuarios'></div>
+<div style='display:none;' id='listaSmileys'>
+	<div align='right'><span onClick="$('#listaSmileys').hide();" class='cerrar'>[Cerrar] <img src='../img/enemigo.png' style='position:relative;top:3px'></span></div>
+	<div id='listaSmileysContainer'></div>
+</div>
+<audio style='display:none' id='audio'>
+   <source src="../sonidos/chat.wav" type="audio/wav"/>
+</audio>
+</body>
+</html>
